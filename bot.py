@@ -1,19 +1,27 @@
+import os
+import sqlite3
+import logging
+from datetime import datetime
+from flask import Flask, request
 import telebot
 from telebot import types
-import sqlite3
-from datetime import datetime
 import pytz
 
-# --- ပြင်ဆင်ရန် ---
-API_TOKEN = '8280427701:AAFId7jPd4xY0FPPG6auBXqXAX5E_EOuKQc'
-ADMIN_ID = 7947267218
+# --- Configuration ---
+API_TOKEN = os.environ.get('BOT_TOKEN', 'YOUR_TOKEN_HERE')
+ADMIN_ID = int(os.environ.get('ADMIN_ID', '0'))
 
-# ----------------
-from telebot import apihelper
+# --- Logging ---
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
-# PythonAnywhere Proxy ကို သုံးဖို့ သတ်မှတ်ပေးခြင်း
-apihelper.proxy = {'https': 'http://proxy.server:3128'}
+# --- Flask App ---
+app = Flask(__name__)
 
+# --- Bot Init ---
 bot = telebot.TeleBot(API_TOKEN, threaded=True, num_threads=20)
 user_data = {}
 closed_numbers = set()
@@ -81,6 +89,21 @@ def set_main_menu(user_id):
         markup.row("🛠 Admin Panel")
     return markup
 
+# --- Flask Routes ---
+@app.route('/')
+def home():
+    return "✅ NuKe 2D Bot is Running!"
+
+@app.route(f'/{API_TOKEN}', methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return '', 200
+    else:
+        return 'Error', 403
+
 # --- Middleware (Ban & Maintenance) ---
 @bot.message_handler(func=lambda m: is_user_banned(m.chat.id))
 def handle_banned(message):
@@ -101,7 +124,7 @@ def deposit_init(message):
 def process_dep_amt(message):
     cid = message.chat.id
     if not message.text.isdigit():
-        bot.send_message(cid, "⚠️ ဂဏန်းသက်သက်ပဲ ရိုက်ပေးပါဗျ။")
+        bot.send_message(cid, "⚠️ ဂဏက်သက်ပဲ ရိုက်ပေးပါဗျ။")
         return
     user_data[cid] = {'d_amt': int(message.text)}
     msg = bot.send_message(cid, f"💰 သွင်းမည့်ပမာဏ: **{message.text}** MMK\n\nငွေလွှဲပြီးပါက လုပ်ငန်းစဉ်အမှတ် (သို့မဟုတ်) Screenshot မှ ဂဏန်း ၆ လုံးကို ပေးပို့ပေးပါ:")
@@ -279,7 +302,7 @@ def process_final_bet(message):
     cid = message.chat.id
     try:
         if not message.text.isdigit():
-            msg = bot.send_message(cid, "⚠️ ဂဏန်းသက်သက်ပဲ ရိုက်ပါ။")
+            msg = bot.send_message(cid, "⚠️ ဂဏက်သက်ပဲ ရိုက်ပါ။")
             bot.register_next_step_handler(msg, process_final_bet)
             return
         amt = int(message.text)
@@ -523,4 +546,15 @@ def history_view(message):
 def bal_check(message):
     bot.send_message(message.chat.id, f"💳 လက်ကျန်ငွေ: {get_balance(message.chat.id)} MMK")
 
-bot.infinity_polling()
+# --- Webhook Setup ---
+def set_webhook():
+    render_url = os.environ.get('RENDER_EXTERNAL_URL', 'https://shwe-latt-2d.onrender.com')
+    if render_url:
+        webhook_url = f"{render_url}/{API_TOKEN}"
+        bot.remove_webhook()
+        bot.set_webhook(url=webhook_url)
+        logger.info(f"Webhook set to: {webhook_url}")
+
+if __name__ == '__main__':
+    set_webhook()
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
