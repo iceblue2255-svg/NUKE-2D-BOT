@@ -8,8 +8,8 @@ from telebot import types
 import pytz
 
 # --- Configuration ---
-API_TOKEN = os.environ.get('BOT_TOKEN', 'YOUR_TOKEN_HERE')
-ADMIN_ID = int(os.environ.get('ADMIN_ID', '0'))
+API_TOKEN = os.environ.get('8280427701:AAFId7jPd4xY0FPPG6auBXqXAX5E_EOuKQc', 'YOUR_TOKEN_HERE')
+ADMIN_ID = int(os.environ.get('7947267218', '0'))
 
 # --- Logging ---
 logging.basicConfig(
